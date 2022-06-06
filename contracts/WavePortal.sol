@@ -5,8 +5,10 @@ pragma solidity ^0.8.0;
 import "hardhat/console.sol";
 
 contract WavePortal {
+    uint256 private seed;
     uint256 totalWaves;
     mapping(address => uint) public totalWavesBySender;
+    mapping(address => uint256) public lastWavedAt;
     /*
      * A little magic, Google what events are in Solidity!
      */
@@ -28,11 +30,19 @@ contract WavePortal {
      */
     Wave[] waves;
 
-    constructor() {
+    constructor() payable {
         console.log("Yo yo, I am a contract and I am smart");
+        seed = (block.timestamp + block.difficulty) % 100;
     }
 
     function wave(string memory _message) public {
+
+        require(
+            lastWavedAt[msg.sender] + 15 minutes < block.timestamp,
+            "Wait 15m"
+        );
+        lastWavedAt[msg.sender] = block.timestamp;
+
         totalWaves += 1;
         totalWavesBySender[msg.sender] += 1;
         console.log("%s has waved!", msg.sender);
@@ -41,24 +51,24 @@ contract WavePortal {
             msg.sender,
             totalWavesBySender[msg.sender]
         );
-        /*
-         * This is where I actually store the wave data in the array.
-         */
+
         waves.push(Wave(msg.sender, _message, block.timestamp));
 
-        /*
-         * I added some fanciness here, Google it and try to figure out what it is!
-         * Let me know what you learn in #general-chill-chat
-         */
-        emit NewWave(msg.sender, block.timestamp, _message);
+        seed = (block.difficulty + block.timestamp + seed) % 100;
 
-        uint256 prizeAmount = 0.0001 ether;
-        require(
-            prizeAmount <= address(this).balance,
-            "Trying to withdraw more money than the contract has."
-        );
-        (bool success, ) = (msg.sender).call{value: prizeAmount}("");
-        require(success, "Failed to withdraw money from contract.");
+        console.log("Random # generated: %d", seed);
+
+        if (seed <= 50) {
+            console.log("%s won!", msg.sender);
+            uint256 prizeAmount = 0.0001 ether;
+            require(
+                prizeAmount <= address(this).balance,
+                "Trying to withdraw more money than the contract has."
+            );
+            (bool success, ) = (msg.sender).call{value: prizeAmount}("");
+            require(success, "Failed to withdraw money from contract.");
+        }
+        emit NewWave(msg.sender, block.timestamp, _message);
     }
 
     /*
